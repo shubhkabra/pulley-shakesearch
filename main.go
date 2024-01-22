@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 )
 
 func main() {
@@ -48,7 +50,11 @@ func handleSearch(searcher Searcher) func(w http.ResponseWriter, r *http.Request
 			w.Write([]byte("missing search query in URL params"))
 			return
 		}
-		results := searcher.Search(query[0])
+		page, pageErr := strconv.Atoi(r.URL.Query().Get("page"))
+		if pageErr != nil {
+			page = 0
+		}
+		results := searcher.Search(query[0], page)
 		buf := &bytes.Buffer{}
 		enc := json.NewEncoder(buf)
 		err := enc.Encode(results)
@@ -67,16 +73,30 @@ func (s *Searcher) Load(filename string) error {
 	if err != nil {
 		return fmt.Errorf("Load: %w", err)
 	}
+	datLower := strings.ToLower(string(dat))
 	s.CompleteWorks = string(dat)
-	s.SuffixArray = suffixarray.New(dat)
+	s.SuffixArray = suffixarray.New([]byte(datLower))
 	return nil
 }
 
-func (s *Searcher) Search(query string) []string {
-	idxs := s.SuffixArray.Lookup([]byte(query), -1)
+func (s *Searcher) Search(query string, page int) []string {
+	idxs := s.SuffixArray.Lookup([]byte(strings.ToLower(query)), -1)
 	results := []string{}
-	for _, idx := range idxs {
+	defaultPageSize := 20
+	start := page * defaultPageSize
+	if start >= len(idxs) {
+		return results
+	}
+	end := min(len(idxs), start+defaultPageSize)
+	for _, idx := range idxs[start:end] {
 		results = append(results, s.CompleteWorks[idx-250:idx+250])
 	}
 	return results
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

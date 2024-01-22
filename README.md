@@ -45,3 +45,12 @@ make test
 ```
 
 Good luck!
+
+
+## Changes made
+
+Handled case sensitivity for searches. 
+
+Added pagination to enable load more with a default page size. 
+
+Passing all tests now.
